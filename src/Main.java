@@ -23,6 +23,9 @@ import java.util.List;
 
 public class Main extends Application {
 
+    private List<Order> allOrders; //načte všechny objednávky
+    private int orderIndex = 0; //index aktuální objednávky
+
     private TableView<LineItem> table = new TableView<>();
 
     public void start(Stage stage) {
@@ -33,6 +36,7 @@ public class Main extends Application {
         Label lblTotal = new Label("Celkem: ");
         Label lblStatus = new Label("Status: ");
         Label lblCurrency = new Label("Měna: ");
+        Label lblID = new Label("ID objednávky: ");
 
         // Tabulka produktů
         TableColumn<LineItem, String> colName = new TableColumn<>("Produkt");
@@ -48,28 +52,47 @@ public class Main extends Application {
 
         Button btnLoad = new Button("Načíst objednávku");
         btnLoad.setOnAction(e -> {
-            Order order = loadOrderFromApi();
-            if (order != null) {
-                lblCustomer.setText("Zákazník: " + order.billing.email);
-                lblTotal.setText("Celkem: " + order.total + " Kč");
-                lblStatus.setText("Status: " + order.status);
-                lblCurrency.setText("Měna: " + order.currency);
-                table.getItems().setAll(order.line_items);
+            allOrders = loadOrderFromApi();  // teď vrací List<Order>
+            orderIndex = 0;               // začneme první objednávkou
+        });
+
+        Button btnLoadAll = new Button("Načíst všechny objednávky");
+        btnLoadAll.setOnAction(e -> {
+            allOrders = loadOrderFromApi();
+            orderIndex = 0; // první objednávka
+            showOrder(orderIndex, lblCustomer, lblTotal, lblStatus, lblCurrency, lblID);
+        });
+
+        Button btnPrev = new Button("Předchozí");
+        btnPrev.setOnAction(e -> {
+            if (orderIndex < allOrders.size() - 1) {
+                orderIndex++;
+                showOrder(orderIndex, lblCustomer, lblTotal, lblStatus, lblCurrency, lblID);
             }
         });
 
-        VBox infoBox = new VBox(5, lblCustomer, lblTotal, lblStatus, lblCurrency);
+        Button btnNext = new Button("Další");
+        btnNext.setOnAction(e -> {
+            if (orderIndex > 0) {
+                orderIndex--;
+                showOrder(orderIndex, lblCustomer, lblTotal, lblStatus, lblCurrency, lblID);
+            }
+        });
+
+        VBox infoBox = new VBox(5, lblCustomer, lblTotal, lblStatus, lblCurrency, lblID);
         infoBox.setStyle("-fx-font-size: 14px;");
 
-        VBox root = new VBox(15, header, btnLoad, infoBox, table);
+        HBox nav = new HBox(10, btnPrev, btnNext);
+        VBox root = new VBox(15, header, btnLoadAll, nav, infoBox, table);
+
         root.setPadding(new javafx.geometry.Insets(15));
-        Scene scene = new Scene(root, 600, 400);
+        Scene scene = new Scene(root, 1000, 750);
         stage.setTitle("WooCommerce objednávka – JavaFX demo");
         stage.setScene(scene);
         stage.show();
     }
 
-    private Order loadOrderFromApi() {
+    private List<Order> loadOrderFromApi() {
         try {
             String apiUrl = "https://eshop-example.infinityfreeapp.com/wp-json/wc/v3/orders"
                     + "?consumer_key=ck_4af2b15d378c6733f7a775841665144f21764b1f"
@@ -94,15 +117,27 @@ public class Main extends Application {
 
             Gson gson = new Gson();
             Type listType = new TypeToken<List<Order>>() {}.getType();
-            List<Order> orders = gson.fromJson(response.toString(), listType);
 
-            return orders.get(0); // první objednávka v seznamu
+            return gson.fromJson(response.toString(), listType);
 
         } catch (Exception e) {
             e.printStackTrace();
             new Alert(Alert.AlertType.ERROR, "Nepodařilo se načíst objednávku").show();
             return null;
         }
+    }
+    private void showOrder(int index, Label lblCustomer, Label lblTotal, Label lblStatus, Label lblCurrency, Label lblID) {
+        if (allOrders == null || allOrders.isEmpty()) return;
+
+        Order order = allOrders.get(index);
+
+        lblCustomer.setText("Zákazník: " + order.billing.first_name + " " + order.billing.last_name + " | " +  order.billing.email);
+        lblTotal.setText("Celkem: " + order.total + " Kč");
+        lblStatus.setText("Status: " + order.status);
+        lblCurrency.setText("Měna: " + order.currency);
+        lblID.setText("ID objednávky: " + order.id);
+
+        table.getItems().setAll(order.line_items);
     }
 
     public static void main(String[] args) {
